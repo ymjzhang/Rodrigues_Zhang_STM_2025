@@ -1,0 +1,26 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2821
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fswiss\fcharset0 Helvetica;}
+{\colortbl;\red255\green255\blue255;}
+{\*\expandedcolortbl;;}
+\margl1440\margr1440\vieww19140\viewh11460\viewkind0
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+
+\f0\fs36 \cf0 # Created by: Jason Zhang\
+# Created on Sept 4 2023\
+# Last updated: March 17 2025\
+\
+##########Using STARsolo on Terra.bio##############\
+1. Zip the files so it uploads more quickly\
+# in the project folder e.g. 241118Lov/\
+cp bcr_process_scripts/zip.* ./\
+module load python3\
+python3 zip.py\
+\
+2. Upload to Terra.bio, my STARsolo workspace \
+gsutil -m cp */*.fastq.gz gs://\{google bucket id\}/\{project folder. i.e. 241118Lov\}/\
+\
+3. Make a sample sheet and upload to Terra.bio\
+\
+4. Run the workflow (https://cumulus.readthedocs.io/en/latest/starsolo.html) \
+\
+}

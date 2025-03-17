@@ -1,0 +1,131 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2821
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fswiss\fcharset0 Helvetica;\f1\fswiss\fcharset0 Helvetica-Bold;}
+{\colortbl;\red255\green255\blue255;}
+{\*\expandedcolortbl;;}
+\margl1440\margr1440\vieww21740\viewh10980\viewkind0
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+
+\f0\fs36 \cf0 # Created by: Jason Zhang\
+# Created on: Oct 4 2023\
+# Last Update: March 17, 2025\
+\
+Demultiplex the sequencing results:\
+1. Ask the core for the \'93
+\f1\b bcl-xxxx
+\f0\b0 \'94 folder. \
+\
+1.1 
+\f1\b MiSeq
+\f0\b0 : In \'93bcl-xxxxx\'94 folder from the sequencing core, open \'93
+\f1\b SampleSheet.csv
+\f0\b0 \'94 and change the \'93
+\f1\b Sample_ID
+\f0\b0 \'94 and \'93
+\f1\b index
+\f0\b0 \'94 (right of \'93I7_index_ID\'94) according to the experiment. Remove things under 
+\f1\b index2
+\f0\b0  and 
+\f1\b I5_Index_ID
+\f0\b0 \
+	\'97 The names for Sample_ID should not have \'93_\'94 (because launchBCR.py will make folders based on first thing before \'93_\'94).\
+	\'97 This index should be the i5 index on the P5/Nextera side of the amplicon. \
+\
+1.2 
+\f1\b NovaSeq
+\f0\b0 : need to make a sample sheet (e.g. 230213LovA/bcl-6131R/SampleSheet.csv) that includes LANE information. \
+	\'97 Need to demultiplex twice if there are barcodes that have a hamming distance of less than 2.\
+\
+\
+2. In \'93bcl-xxxxx\'94 folder from the sequencing core, open \'93
+\f1\b RunInfo.xml
+\f0\b0 \'94 in TextEditor and change \
+	<Read NumCycles="300" Number="2" IsIndexedRead=\'93Y\'94 />\
+	to \
+	
+\f1\b <Read NumCycles="300" Number="2" IsIndexedRead="N" />
+\f0\b0 \
+\
+3. In the command line, load bcl2fastq software by typing:\
+	
+\f1\b module load bcl2fastq
+\f0\b0 \
+	or add bcl2fastq to PATH\
+	
+\f1\b export PATH=\{where bcl2fastq is\}:$PATH
+\f0\b0 \
+\
+4. Go to the folder with seq results (e.g. data/220715LovA). bcl folder should be in there.\
+\
+5. In the command line, type:\
+	bcl2fastq -R [run folder] -o [output folder] --mask-short-adapter-reads 0 --minimum-trimmed-read-length 0 --sample-sheet [run folder/SahmpleSheet.csv] \
+	e.g. bcl2fastq -R bcl-5853T/ -o fastq/ --mask-short-adapter-reads 0 --minimum-trimmed-read-length 0 --sample-sheet bcl-5853T/SampleSheet.csv\
+\
+***If need to combine fastq files***: \
+	
+\f1\b cat file1.fastq file2.fastq > bigfile.fastq\
+
+\f0\b0 \
+6. Look at the quality of data (fastqc can run on both fastq and fastq.gz): \
+	Type: module load fastqc\
+	Type: fastqc fastq/*R1* (then do it for R2 and R3)\
+OR \
+	
+\f1\b python3 run_fastqc.py\
+	rm slurm* 
+\f0\b0 \
+\
+7. After bcl2fastq, need to unzip all of the fastq files. In the fastq file folder: \
+	gunzip fastq/*.gz\
+OR \
+	
+\f1\b python3 unzip.py\
+	rm slurm* 
+\f0\b0 \
+\
+Process the BCR sequence and map the reads: \
+1. Go into the fastq folder by typing: \
+	
+\f1\b cd fastq/
+\f0\b0 \
+\
+2. Copy contents in bcr_process folder to fastq folder () by typing: \
+	
+\f1\b cp bcr_process/* ./
+\f0\b0 \
+	\
+2.1 Check \'93vprimers.fasta\'94 file to make sure the V gene primers in there are the same as what we used to amplify out the V gene. This is speices dependent. \
+\
+3. Make sure igblast local database is set up and configured (https://changeo.readthedocs.io/en/stable/examples/igblast.html) \
+3.1 Download scripts for setup at https://bitbucket.org/kleinstein/immcantation/downloads/ \
+3.2 Get the igblast \
+wget ftp://ftp.ncbi.nih.gov/blast/executables/igblast/release/1.20.0/ncbi-igblast-1.20.0-x64-linux.tar.gz\
+tar -zxf ncbi-igblast-1.20.0-x64-linux.tar.gz\
+3.3 Download reference databases and setup IGDATA directory\
+bash script/fetch_igblastdb.sh -o ~/data/share/igblast\
+cp -r ncbi-igblast-1.20.0/internal_data ~/data/share/igblast\
+cp -r ncbi-igblast-1.20.0/optional_file ~/data/share/igblast\
+3.4 Build IgBLAST database from IMGT reference sequences\
+bash script/fetch_imgtdb.sh -o ~/data/share/germlines/imgt\
+bash script/imgt2igblast.sh -i ~/data/share/germlines/imgt -o ~/data/share/igblast\
+\
+4. Run the python script to submit jobs by typing: \
+	
+\f1\b module load python3 \
+	python3 launchBCR.py\
+
+\f0\b0 launchBCR.py will find all the fastq files for each sample and call on bcrprocess.sh, which is configured specifically to Seqwell (12nt cell barcode and 8nt UMI). \
+\
+Conceptual Notes of bcrprocssing.sh: \
+	a. First step in BCR processing is fixing UMI using the \'93jz_fixumi.py\'94 script.\
+	b. Next, filter Read 1 (custom primers that bind to the constant region) and Read 2 (Nextera primer that reads from V(DJ) region) based on the quality scores (Phred-like, line 4 of a fastq entry). Output is Filtered_R[x]_quality-[xxxx].fastq \
+	c. Match and mask R1 to the given primer file (ighc_primers.fasta), output is MP1.log. R2 sequence to given primer file (vprimers.fasta), output is MP2.log. Calculate the error rate in the primer sequences. \
+	d. Sorts and matches sequence records with matching coordinates across files. If a molecule is in R2 but not in R1, counts as fail. \
+	e. Build consensus for R1 and R2\
+	f. Assemble the pairs to generate a full BCR sequence \
+	g, IgBlast these sequences \
+\
+After mapping the read: \
+1. Run combine_results.py in the fastq/ folder: \
+	python3 combine_results.py\
+\
+}
